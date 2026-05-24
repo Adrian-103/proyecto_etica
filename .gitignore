@@ -1,0 +1,13 @@
+# Entornos virtuales de Python
+venv/
+env/
+.env
+
+# Caché compilada de Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Dependencias de Node.js (Para tu dashboard en React)
+node_modules/
+dist/
