@@ -1,15 +1,14 @@
 import asyncio
 import websockets
 import json
-import time
+import cv2
+import base64
 
 # --- CONFIGURACIÓN ---
-# Cambia esto por la IP local de tu computadora (ej. "192.168.1.25")
-IP_DE_TU_PC = "TU_IP_AQUI" 
+IP_DE_TU_PC = "10.42.0.X" # <- PON TU IP DE OULUNSALO AQUÍ
 PUERTO = 8765
 
 def leer_temperatura_cpu():
-    """Lee la temperatura real del procesador de la Raspberry Pi en Linux"""
     try:
         with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
             temp = float(f.read()) / 1000.0
@@ -17,44 +16,62 @@ def leer_temperatura_cpu():
     except Exception as e:
         return 0.0
 
-async def conectar_al_cerebro():
+async def nodo_terminal():
     url = f"ws://{IP_DE_TU_PC}:{PUERTO}"
-    print(f"Intentando conectar al cerebro en {url}...")
+    print(f"Conectando al Cerebro en {url}...")
+    
+    # Abrimos la cámara de la Raspberry Pi
+    cap = cv2.VideoCapture(0)
+    # Bajamos la resolución a 640x480 para no saturar el Wi-Fi
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
+    if not cap.isOpened():
+        print("Error: No se detectó ninguna cámara en la Raspberry Pi.")
+        return
 
     try:
         async with websockets.connect(url) as websocket:
-            print("¡Conexión establecida con la PC!")
+            print("¡Conectado exitosamente!")
             
             while True:
-                # 1. LEER ÓRDENES: Escuchamos lo que nos manda la PC
+                # 1. Tomar la foto
+                ret, frame = cap.read()
+                if not ret:
+                    continue
+                
+                # 2. Comprimirla para envío rápido por red
+                _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 50])
+                frame_base64 = base64.b64encode(buffer).decode('utf-8')
+                
+                # 3. Enviar todo al Cerebro
+                paquete_salida = {
+                    "tipo": "telemetria_pi",
+                    "cpu_pi": leer_temperatura_cpu(),
+                    "video": frame_base64
+                }
+                await websocket.send(json.dumps(paquete_salida))
+                
+                # 4. Recibir las órdenes mágicas procesadas por la IA
                 try:
-                    # Usamos wait_for para no quedarnos bloqueados esperando eternamente
-                    mensaje_pc = await asyncio.wait_for(websocket.recv(), timeout=0.5)
-                    datos_ia = json.loads(mensaje_pc)
+                    mensaje_ia = await asyncio.wait_for(websocket.recv(), timeout=1.0)
+                    datos_ia = json.loads(mensaje_ia)
                     
                     color = datos_ia.get("color")
                     hz = datos_ia.get("parpadeo")
                     
-                    # Por ahora solo lo imprimimos, luego aquí pondremos el código de la tira LED
-                    print(f"[ÓRDEN RECIBIDA] Color: {color} | Parpadeo: {hz} Hz")
+                    print(f"[IA DICE] Color: {color} | Parpadeo: {hz} Hz")
                     
                 except asyncio.TimeoutError:
-                    pass # Si no hay mensaje nuevo en este medio segundo, no pasa nada
+                    pass
                 
-                # 2. ENVIAR TELEMETRÍA: Le mandamos la temperatura real a la PC
-                temp_real = leer_temperatura_cpu()
-                datos_pi = {
-                    "tipo": "telemetria_hardware",
-                    "cpu_pi": temp_real
-                }
-                await websocket.send(json.dumps(datos_pi))
-                
-                await asyncio.sleep(0.1)
+                # Pequeña pausa para mantener la fluidez de red a ~20 FPS
+                await asyncio.sleep(0.05)
 
-    except ConnectionRefusedError:
-        print("Error: No se pudo conectar. ¿Está corriendo el servidor en la PC y es la IP correcta?")
-    except websockets.exceptions.ConnectionClosed:
-        print("Desconectado del cerebro.")
+    except Exception as e:
+        print(f"Error de conexión: {e}")
+    finally:
+        cap.release()
 
 if __name__ == "__main__":
-    asyncio.run(conectar_al_cerebro())
+    asyncio.run(nodo_terminal())
