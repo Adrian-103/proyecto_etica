@@ -5,7 +5,7 @@ import cv2
 import base64
 
 # --- CONFIGURACIÓN ---
-IP_DE_TU_PC = "10.42.0.X" # <- PON TU IP DE OULUNSALO AQUÍ
+IP_DE_TU_PC = "10.42.0.203" # <- PON TU IP DE OULUNSALO AQUÍ
 PUERTO = 8765
 
 def leer_temperatura_cpu():
