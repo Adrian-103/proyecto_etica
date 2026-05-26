@@ -1,0 +1,15 @@
+#!/bin/bash
+# 1. Asegurar que el Hotspot "Oulunsalo" esté encendido
+sudo nmcli connection up "Oulunsalo"
+
+# 2. Esperar 5 segundos a que la red se estabilice
+sleep 10
+
+# 3. Moverse a la carpeta del proyecto
+cd /home/birria/proyecto_etica/raspberry # <- Cambia por tu ruta real
+
+# 4. Activar el entorno virtual de Python
+source venv/bin/activate
+
+# 5. Ejecutar el cliente de la Pi
+python cliente_pi.py
