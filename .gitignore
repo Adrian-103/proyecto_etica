@@ -11,3 +11,6 @@ __pycache__/
 # Dependencias de Node.js (Para tu dashboard en React)
 node_modules/
 dist/
+
+# Evitar módulos de node
+**/node_modules/
