@@ -6,7 +6,7 @@ sudo nmcli connection up "Oulunsalo"
 sleep 10
 
 # 3. Moverse a la carpeta del proyecto
-cd /home/birria/proyecto_etica/raspberry # <- Cambia por tu ruta real
+cd /home/birria/proyecto_etica # <- Cambia por tu ruta real
 
 # 4. Activar el entorno virtual de Python
 source venv/bin/activate
