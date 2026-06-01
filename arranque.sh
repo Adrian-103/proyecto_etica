@@ -1,6 +1,6 @@
 #!/bin/bash
-# 1. Asegurar que el Hotspot "Oulunsalo" esté encendido
-sudo nmcli connection up "Hotspot"
+# 1. Asegurar que el Hotspot esté encendido
+sudo nmcli connection up Hotspot
 
 # 2. Esperar 5 segundos a que la red se estabilice
 sleep 15
