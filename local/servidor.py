@@ -7,7 +7,7 @@ import base64
 from ultralytics import YOLO
 
 print("Cargando modelo YOLOv8...")
-model = YOLO('yolov8n.pt') 
+model = YOLO('yolov8n-seg.pt') 
 
 # Variables globales de estado
 parpadeo_hz = 1
@@ -16,10 +16,20 @@ color_hex = "#A855F7"
 temp_cpu_pi = 0.0
 prev_gray = None  # Guardará el fotograma anterior en blanco y negro
 
+color_anterior = (0, 0, 0)
+alpha = 0.3
+
+def filtro_pasa_bajas(color_nuevo, color_ant, alpha):
+    r = int(alpha * color_nuevo[0] + (1 - alpha) * color_ant[0])
+    g = int(alpha * color_nuevo[1] + (1 - alpha) * color_ant[1])
+    b = int(alpha * color_nuevo[2] + (1 - alpha) * color_ant[2])
+    return (r, g, b)
+
 clientes_conectados = set()
 
 async def servidor_ia(websocket):
-    global parpadeo_hz, nivel_movimiento, color_hex, temp_cpu_pi, prev_gray
+    # Declaración global actualizada para incluir color_anterior
+    global parpadeo_hz, nivel_movimiento, color_hex, temp_cpu_pi, prev_gray, color_anterior
     
     clientes_conectados.add(websocket)
     print(f"Nuevo cliente conectado. Total en la red: {len(clientes_conectados)}")
@@ -46,8 +56,8 @@ async def servidor_ia(websocket):
                     resultados = model(frame, conf=0.5, classes=[0], verbose=False)
                     frame_dibujado = resultados[0].plot()
 
-                    # 3. LÓGICA AVANZADA DE MOVIMIENTO (Solo si hay una persona y un fotograma previo)
-                    if len(resultados[0].boxes) > 0 and prev_gray is not None:
+                    # 3. LÓGICA AVANZADA DE MOVIMIENTO Y COLOR
+                    if len(resultados[0].boxes) > 0 and resultados[0].masks is not None and prev_gray is not None:
                         # Calcular la diferencia absoluta entre el fotograma actual y el anterior
                         diferencia_marcos = cv2.absdiff(prev_gray, gray)
                         # Resaltar solo los cambios grandes (elimina el ruido de la cámara)
@@ -68,17 +78,20 @@ async def servidor_ia(websocket):
                         elif porcentaje_cambio < 4.0: nivel_movimiento = "Medio"
                         else: nivel_movimiento = "Alto"
 
-                        # --- EXTRAER COLOR DE LA PERSONA DETECTADA ---
-                        caja = resultados[0].boxes[0]
-                        x1, y1, x2, y2 = map(int, caja.xyxy[0])
-                        h_img, w_img, _ = frame.shape
-                        x1, y1, x2, y2 = max(0, x1), max(0, y1), min(w_img, x2), min(h_img, y2)
+                        # --- EXTRAER COLOR DE LA PERSONA DETECTADA POR SILUETA ---
+                        mascara = resultados[0].masks.data[0].cpu().numpy()
+                        mascara_redimensionada = cv2.resize(mascara, (frame.shape[1], frame.shape[0]))
+                        mascara_binaria = (mascara_redimensionada > 0.5).astype(np.uint8)
+
+                        promedio = cv2.mean(frame, mask=mascara_binaria)
                         
-                        if x2 > x1 and y2 > y1:
-                            recorte = frame[y1:y2, x1:x2]
-                            color_promedio_bgr = cv2.resize(recorte, (1, 1))[0][0]
-                            b, g, r = map(int, color_promedio_bgr)
-                            color_hex = f"#{r:02X}{g:02X}{b:02X}"
+                        b, g, r = int(promedio[0]), int(promedio[1]), int(promedio[2])
+                        color_nuevo_crudo = (r, g, b)
+
+                        color_suavizado = filtro_pasa_bajas(color_nuevo_crudo, color_anterior, alpha)
+                        color_anterior = color_suavizado
+
+                        color_hex = f"#{color_suavizado[0]:02X}{color_suavizado[1]:02X}{color_suavizado[2]:02X}"
                     else:
                         # Si no hay nadie, el movimiento baja gradualmente a cero
                         parpadeo_hz = max(1, int(parpadeo_hz * 0.7))
