@@ -8,5 +8,5 @@ pixels = neopixel.NeoPixel(
     auto_write=False
 )
 
-pixels.fill((255, 0, 0))
+pixels.fill((0, 255, 255))
 pixels.show()
