@@ -14,7 +14,7 @@ PUERTO = 8765
 
 # --- CONFIGURACIÓN DE LEDs ---
 NUM_PIXELS = 160
-pixels = neopixel.NeoPixel(board.D18, NUM_PIXELS, brightness=1.0, auto_write=False)
+pixels = neopixel.NeoPixel(board.D18, NUM_PIXELS, brightness=0.4, auto_write=False)
 
 def leer_temperatura_cpu():
     try:
@@ -28,6 +28,11 @@ def hex_a_rgb(hex_color):
     """Convierte un color '#RRGGBB' a una tupla (R, G, B) para los LEDs"""
     hex_color = hex_color.lstrip('#')
     return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+TABLA_GAMMA = [int(((i / 255.0) ** 2.5) * 255 + 0.5) for i in range(256)]
+def aplicar_correccion_gamma(rgb_tuple):
+    """Suaviza el color para que el hardware LED lo represente de forma fiel a la realidad"""
+    return tuple(TABLA_GAMMA[val] for val in rgb_tuple)
 
 async def nodo_terminal():
     url = f"ws://{IP_DE_TU_PC}:{PUERTO}"
@@ -109,7 +114,9 @@ async def nodo_terminal():
                     ultimo_cambio = tiempo_actual
                     
                     if estado_led and rgb != (0,0,0):
-                        pixels.fill(rgb)
+
+                        color_fiel = aplicar_correccion_gamma(rgb)
+                        pixels.fill(color_fiel)
                     else:
                         pixels.fill((0, 0, 0)) # Apagado
                     
