@@ -68,7 +68,7 @@ async def nodo_terminal():
                 # 2. Recibir órdenes y controlar los LEDs
                 try:
                     # Usamos un timeout súper corto para no trabar la cámara
-                    mensaje_ia = await asyncio.wait_for(websocket.recv(), timeout=0.05)
+                    mensaje_ia = await asyncio.wait_for(websocket.recv(), timeout=5.0)
                     datos_ia = json.loads(mensaje_ia)
                     
                     color_hex = datos_ia.get("color", "#000000")
@@ -97,7 +97,9 @@ async def nodo_terminal():
                     
                 except asyncio.TimeoutError:
                     # Si no llega mensaje a tiempo, no hacemos nada y seguimos grabando
-                    pass
+                    print("Timeout error")
+                except Exception as e:
+                    print(f"Error raro al recibir: {e}")
                 
     except Exception as e:
         print(f"Error de conexión: {e}")
