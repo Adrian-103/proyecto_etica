@@ -65,7 +65,7 @@ async def nodo_terminal():
                     continue
                 
                 # Convertimos el formato de RGB (Pi 5) a BGR (El idioma que habla OpenCV)
-                frame = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
+                frame = frame_rgb
                 
                 # Comprimir a JPG para mandarlo por la red sin saturarla
                 _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 50])
